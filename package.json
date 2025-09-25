@@ -21,5 +21,8 @@
   "bugs": {
     "url": "https://github.com/YirongWho/avalon-game/issues"
   },
-  "homepage": "https://github.com/YirongWho/avalon-game#readme"
+  "homepage": "https://github.com/YirongWho/avalon-game#readme",
+  "engines": {
+    "node": "18.x"
+  }
 }
