@@ -142,7 +142,7 @@ io.on('connection', (socket) => {
                 room.gameState.status = 'ladyOfTheLake';
                 setTimeout(() => io.to(roomId).emit('gameStateUpdate', room.gameState), 4000);
             } else {
-                startNextRound(room, roomId); // ✨ **FIX**: Pass roomId
+                startNextRound(room, roomId);
             }
         }
     });
@@ -177,7 +177,7 @@ io.on('connection', (socket) => {
         room.gameState.ladyOfTheLake.previousHolders.push(socket.id);
         room.gameState.ladyOfTheLake.holderId = targetId;
 
-        startNextRound(room, roomId); // ✨ **FIX**: Pass roomId
+        startNextRound(room, roomId);
     });
 
     socket.on('assassinate', ({ roomId, targetId }) => {
@@ -246,6 +246,7 @@ function initializeGame(roomId) {
         io.to(player.id).emit('roleAssigned', { role: player.role, alignment: player.alignment, roleInfo });
     });
 
+    // ✨ **关键**: 随机选择一个玩家作为第一个领袖
     const firstLeaderIndex = Math.floor(Math.random() * numPlayers);
     
     room.gameState = {
@@ -261,6 +262,7 @@ function initializeGame(roomId) {
     };
 
     if (numPlayers >= 8) {
+        // ✨ **关键**: 根据随机的领袖，设定他之前的玩家为湖中女神持有者
         const ladyHolderIndex = (firstLeaderIndex - 1 + numPlayers) % numPlayers;
         const ladyHolderId = room.players[ladyHolderIndex].id;
         room.gameState.ladyOfTheLake = {
@@ -277,13 +279,11 @@ function nextLeader(room) {
     room.gameState.leaderIndex = (room.gameState.leaderIndex + 1) % room.players.length;
 }
 
-// ✨ **FIX**: Function now accepts roomId
 function startNextRound(room, roomId) {
     room.gameState.missionRound++;
     room.gameState.voteTrack = 0;
     nextLeader(room);
     room.gameState.status = 'proposing';
-    // ✨ **FIX**: Use the correct roomId variable
     setTimeout(() => io.to(roomId).emit('gameStateUpdate', room.gameState), 4000);
 }
 
