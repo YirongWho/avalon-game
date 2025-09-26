@@ -132,13 +132,12 @@ io.on('connection', (socket) => {
             const approvals = Object.values(room.gameState.votes).filter(v => v === 'approve').length;
             const passed = approvals > room.players.length / 2;
 
-            // ✨ **NEW**: Record vote history
             const logEntry = {
                 quest: room.gameState.missionRound + 1,
                 proposal: room.gameState.voteTrack + 1,
                 leader: room.players[room.gameState.leaderIndex].name,
                 team: room.gameState.proposedTeam.map(id => room.players.find(p => p.id === id).name),
-                votes: { ...room.gameState.votes }, // Create a copy
+                votes: { ...room.gameState.votes },
                 result: passed ? 'passed' : 'failed'
             };
             room.gameState.proposalHistory.push(logEntry);
@@ -185,6 +184,9 @@ io.on('connection', (socket) => {
                 return;
             }
             if (totalSuccesses >= 3) {
+                // ✨ **MODIFIED**: Prepare target list for assassin
+                const goodPlayers = room.players.filter(p => p.alignment === ALIGNMENT.GOOD);
+                room.gameState.assassinationTargets = goodPlayers.map(p => ({ id: p.id, name: p.name }));
                 room.gameState.status = 'assassination';
                 io.to(roomId).emit('gameStateUpdate', room.gameState);
                 return;
@@ -299,7 +301,7 @@ function initializeGame(roomId) {
         leaderIndex: Math.floor(Math.random() * numPlayers),
         voteTrack: 0,
         missionResults: [],
-        proposalHistory: [], // ✨ **NEW**: Initialize history array
+        proposalHistory: [],
         setup: {
             missionTeam: setup.missionTeam,
             twoFailsRequired: !!setup.twoFailsRequired

@@ -33,8 +33,6 @@
         .mission-marker.fail { background-color: #d9534f; color: white; border-color: #d43f3a; }
         .vote-track-marker { width: 20px; height: 20px; border: 1px solid #333; border-radius: 50%; }
         .vote-track-marker.active { background-color: #d9534f; }
-        
-        /* ✨ **NEW**: Log Styles */
         #log-button { background-color: #6c757d; margin-top: 10px; }
         #log-button:hover { background-color: #5a6268; }
         #log-modal-content { text-align: left; max-width: 500px; width: 90%;}
@@ -104,7 +102,6 @@
     <script>
         const socket = io();
 
-        // ... (previous view elements)
         const loginView = document.getElementById('login-view');
         const lobbyView = document.getElementById('lobby-view');
         const gameView = document.getElementById('game-view');
@@ -124,13 +121,11 @@
         const gameStatusDiv = document.getElementById('game-status');
         const actionArea = document.getElementById('action-area');
         
-        // ✨ **NEW**: Log elements
         const logButton = document.getElementById('log-button');
         const logModal = document.getElementById('log-modal');
         const closeLogBtn = document.getElementById('close-log-btn');
         const logEntriesDiv = document.getElementById('log-entries');
 
-        // ... (previous game state variables)
         let myPlayerId = '';
         let currentRoomId = '';
         let gameState = null;
@@ -138,7 +133,6 @@
         let myAlignment = '';
         const roleTranslations = { 'Merlin': '梅林', 'Percival': '派西维尔', 'Loyal_Servant': '亚瑟的忠臣', 'Morgana': '莫甘娜', 'Assassin': '刺客', 'Mordred': '莫德雷德', 'Minion': '莫德雷德的爪牙', 'Oberon': '奥伯伦' };
 
-        // --- Event Listeners ---
         joinBtn.addEventListener('click', () => {
             const playerName = playerNameInput.value.trim();
             if (!playerName) { showNotification('请输入昵称'); return; }
@@ -149,12 +143,10 @@
         });
         startGameBtn.addEventListener('click', () => socket.emit('startGame', currentRoomId));
         
-        // ✨ **NEW**: Log button listeners
         logButton.addEventListener('click', () => logModal.classList.remove('hidden'));
         closeLogBtn.addEventListener('click', () => logModal.classList.add('hidden'));
-        logModal.addEventListener('click', (e) => { if (e.target === logModal) logModal.classList.add('hidden'); }); // Click outside to close
+        logModal.addEventListener('click', (e) => { if (e.target === logModal) logModal.classList.add('hidden'); });
 
-        // --- Socket.IO Listeners ---
         socket.on('connect', () => { myPlayerId = socket.id; });
         socket.on('roomCreated', (roomId) => {
             currentRoomId = roomId;
@@ -190,7 +182,7 @@
             console.log("【收到更新】服务器发来了新的游戏状态:", newGameState);
             gameState = newGameState;
             renderGameState();
-            updateLog(gameState.proposalHistory); // ✨ **NEW**: Update log on every state change
+            updateLog(gameState.proposalHistory);
         });
         socket.on('voteResult', ({ votes, passed }) => {
             let resultText = `投票结果: ${passed ? '通过' : '否决'}<br>`;
@@ -217,7 +209,6 @@
         });
         socket.on('error', (message) => showNotification(message));
 
-        // --- Rendering Functions ---
         function showLobby() {
             loginView.classList.add('hidden');
             lobbyView.classList.remove('hidden');
@@ -234,7 +225,6 @@
             startGameBtn.disabled = players.length < 5 || players.length > 10;
         }
 
-        // ... (renderGameState and other functions remain largely the same)
         function renderGameState() {
             if (!gameState) return;
             playersListDiv.innerHTML = '';
@@ -297,7 +287,6 @@
             }
         }
         
-        // ✨ **NEW**: Log Rendering Function
         function updateLog(history) {
             if (!history) {
                 logEntriesDiv.innerHTML = '<p>暂无记录。</p>';
@@ -368,16 +357,20 @@
             socket.emit('voteOnMission', { roomId: currentRoomId, vote });
             actionArea.innerHTML = '<p>已出票，等待其他队员...</p>';
         }
+
+        // ✨ **MODIFIED**: Assassin now sees a filtered list of targets
         function renderAssassinationChoice() {
-            actionArea.innerHTML = '<h4>选择你要刺杀的玩家:</h4>';
-            gameState.players.forEach(player => {
-                if (player.id !== myPlayerId) {
-                    const btn = document.createElement('button');
-                    btn.style.margin = '5px';
-                    btn.textContent = `刺杀 ${player.name}`;
-                    btn.onclick = () => submitAssassination(player.id);
-                    actionArea.appendChild(btn);
-                }
+            actionArea.innerHTML = '<h4>选择你要刺杀的好人阵营玩家:</h4>';
+            if (!gameState.assassinationTargets) {
+                actionArea.innerHTML = '<p>正在获取目标列表...</p>';
+                return;
+            }
+            gameState.assassinationTargets.forEach(player => {
+                const btn = document.createElement('button');
+                btn.style.margin = '5px';
+                btn.textContent = `刺杀 ${player.name}`;
+                btn.onclick = () => submitAssassination(player.id);
+                actionArea.appendChild(btn);
             });
         }
         function submitAssassination(targetId) {
