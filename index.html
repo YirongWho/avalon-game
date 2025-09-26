@@ -23,6 +23,7 @@
         #game-info h4 { margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         #players-list label { display: block; padding: 5px; }
         .player-item.leader { font-weight: bold; color: #d9534f; }
+        .player-item.lady { font-weight: bold; color: #17a2b8; }
         .player-item.on-team { background-color: #dff0d8; }
         .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 15px 25px; border-radius: 5px; z-index: 1000; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
@@ -46,8 +47,12 @@
     <div class="container">
         <div id="login-view">
             <h1>阿瓦隆</h1>
-            <div class="input-group"><input type="text" id="player-name" placeholder="输入你的昵称"></div>
-            <div class="input-group"><input type="text" id="room-id-input" placeholder="输入房间号 (留空则创建)"></div>
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="输入你的昵称">
+            </div>
+            <div class="input-group">
+                <input type="text" id="room-id-input" placeholder="输入房间号 (留空则创建)">
+            </div>
             <button id="join-btn">加入/创建房间</button>
         </div>
 
@@ -69,7 +74,10 @@
                     <div class="info-block">
                         <h4>我的情报</h4>
                         <p><strong>身份:</strong> <span id="my-role"></span></p>
-                        <p id="teammates-info" style="min-height: 2.5em;"></p>
+                        <div id="role-info-panel">
+                            <p id="teammates-info" style="min-height: 1.5em;"></p>
+                            <div id="lady-info"></div>
+                        </div>
                     </div>
                     <div class="info-block">
                         <h4>游戏面板</h4>
@@ -115,12 +123,12 @@
         const playersListDiv = document.getElementById('players-list');
         const myRoleDisplay = document.getElementById('my-role');
         const teammatesInfo = document.getElementById('teammates-info');
+        const ladyInfoDiv = document.getElementById('lady-info');
         const missionMarkersDiv = document.getElementById('mission-markers');
         const voteTrackDiv = document.getElementById('vote-track');
         const voteTrackCount = document.getElementById('vote-track-count');
         const gameStatusDiv = document.getElementById('game-status');
         const actionArea = document.getElementById('action-area');
-        
         const logButton = document.getElementById('log-button');
         const logModal = document.getElementById('log-modal');
         const closeLogBtn = document.getElementById('close-log-btn');
@@ -182,7 +190,7 @@
             console.log("【收到更新】服务器发来了新的游戏状态:", newGameState);
             gameState = newGameState;
             renderGameState();
-            updateLog(gameState.proposalHistory);
+            updateGameLog(gameState.gameLog);
         });
         socket.on('voteResult', ({ votes, passed }) => {
             let resultText = `投票结果: ${passed ? '通过' : '否决'}<br>`;
@@ -196,6 +204,11 @@
         socket.on('missionResult', ({ result, fails }) => {
             showModal(`任务${result === 'success' ? '成功' : '失败'}! 失败票数: ${fails}`);
             setTimeout(hideModal, 3500);
+        });
+        socket.on('ladyOfTheLakeResult', ({ targetName, alignment }) => {
+            const resultHtml = `<p>🧜‍♀️ 湖中女神: 你看到 <strong>${targetName}</strong> 是 <span style="font-weight:bold; color:${alignment === 'good' ? 'blue' : 'red'};">${alignment === 'good' ? '好人' : '坏人'}</span> 阵营的。</p>`;
+            ladyInfoDiv.innerHTML += resultHtml;
+            showNotification(`你查验了 ${targetName} 的身份。`);
         });
         socket.on('gameOver', ({ winner, reason, roles }) => {
             let roleText = '<h4>最终身份:</h4>';
@@ -231,12 +244,16 @@
             gameState.players.forEach((player, index) => {
                 const playerEl = document.createElement('div');
                 playerEl.classList.add('player-item');
-                playerEl.dataset.id = player.id;
-                playerEl.textContent = player.name;
+                let text = player.name;
                 if (index === gameState.leaderIndex) {
                     playerEl.classList.add('leader');
-                    playerEl.textContent += ' (领袖)';
+                    text += ' (领袖)';
                 }
+                if (gameState.ladyOfTheLake && player.id === gameState.ladyOfTheLake.holderId) {
+                    playerEl.classList.add('lady');
+                    text += ' 🧜‍♀️';
+                }
+                playerEl.textContent = text;
                 if(gameState.proposedTeam && gameState.proposedTeam.includes(player.id)) {
                     playerEl.classList.add('on-team');
                 }
@@ -265,6 +282,7 @@
             actionArea.innerHTML = '';
             const isLeader = gameState.players[gameState.leaderIndex].id === myPlayerId;
             const isOnTeam = gameState.proposedTeam && gameState.proposedTeam.includes(myPlayerId);
+            const isLady = gameState.ladyOfTheLake && gameState.ladyOfTheLake.holderId === myPlayerId;
 
             switch (gameState.status) {
                 case 'proposing':
@@ -284,37 +302,53 @@
                     if (myRole === 'Assassin') { renderAssassinationChoice(); } 
                     else { actionArea.innerHTML = '<p>等待刺客选择刺杀对象...</p>'; }
                     break;
+                case 'ladyOfTheLake':
+                    const ladyHolderName = gameState.players.find(p => p.id === gameState.ladyOfTheLake.holderId)?.name;
+                    gameStatusDiv.textContent = `湖中女神阶段 - 等待 ${ladyHolderName} 查验玩家身份...`;
+                    if(isLady) {
+                        renderLadyOfTheLakeChoice();
+                    }
+                    break;
             }
         }
         
-        function updateLog(history) {
-            if (!history) {
+        function updateGameLog(gameLog) {
+            if (!gameLog) {
                 logEntriesDiv.innerHTML = '<p>暂无记录。</p>';
                 return;
             }
-            logEntriesDiv.innerHTML = history.slice().reverse().map(entry => {
-                const approves = [];
-                const rejects = [];
-                for (const playerId in entry.votes) {
-                    const playerName = gameState.players.find(p => p.id === playerId)?.name || '未知玩家';
-                    if (entry.votes[playerId] === 'approve') {
-                        approves.push(playerName);
-                    } else {
-                        rejects.push(playerName);
-                    }
+            logEntriesDiv.innerHTML = gameLog.slice().reverse().map(entry => {
+                switch(entry.type) {
+                    case 'proposal':
+                        const approves = [];
+                        const rejects = [];
+                        for (const playerId in entry.votes) {
+                            const playerName = gameState.players.find(p => p.id === playerId)?.name || '未知玩家';
+                            if (entry.votes[playerId] === 'approve') approves.push(playerName);
+                            else rejects.push(playerName);
+                        }
+                        return `
+                            <div class="log-entry">
+                                <h5>第${entry.quest}轮 / 第${entry.proposal}次提议 (${entry.result === 'passed' ? '通过' : '否决'})</h5>
+                                <p><strong>队长:</strong> ${entry.leader}</p>
+                                <p><strong>队伍:</strong> ${entry.team.join(', ')}</p>
+                                <div class="log-votes">
+                                    <p style="color:green; margin:2px 0;"><strong>同意 (${approves.length}):</strong> ${approves.join(', ') || '无'}</p>
+                                    <p style="color:red; margin:2px 0;"><strong>反对 (${rejects.length}):</strong> ${rejects.join(', ') || '无'}</p>
+                                </div>
+                            </div>
+                        `;
+                    case 'ladyOfTheLake':
+                        return `
+                            <div class="log-entry">
+                                <h5>第${entry.quest}轮 - 湖中女神事件</h5>
+                                <p>🧜‍♀️ <strong>${entry.oldHolder}</strong> (湖中女神) 查验了 <strong>${entry.checkedPlayer}</strong>。</p>
+                                <p>新的湖中女神现在是 <strong>${entry.checkedPlayer}</strong>。</p>
+                            </div>
+                        `;
+                    default:
+                        return '';
                 }
-                
-                return `
-                    <div class="log-entry">
-                        <h5>第${entry.quest}轮 / 第${entry.proposal}次提议 (${entry.result === 'passed' ? '通过' : '否决'})</h5>
-                        <p><strong>队长:</strong> ${entry.leader}</p>
-                        <p><strong>队伍:</strong> ${entry.team.join(', ')}</p>
-                        <div class="log-votes">
-                            <p style="color:green; margin:2px 0;"><strong>同意 (${approves.length}):</strong> ${approves.join(', ') || '无'}</p>
-                            <p style="color:red; margin:2px 0;"><strong>反对 (${rejects.length}):</strong> ${rejects.join(', ') || '无'}</p>
-                        </div>
-                    </div>
-                `;
             }).join('');
         }
         
@@ -357,8 +391,6 @@
             socket.emit('voteOnMission', { roomId: currentRoomId, vote });
             actionArea.innerHTML = '<p>已出票，等待其他队员...</p>';
         }
-
-        // ✨ **MODIFIED**: Assassin now sees a filtered list of targets
         function renderAssassinationChoice() {
             actionArea.innerHTML = '<h4>选择你要刺杀的好人阵营玩家:</h4>';
             if (!gameState.assassinationTargets) {
@@ -376,6 +408,23 @@
         function submitAssassination(targetId) {
             socket.emit('assassinate', { roomId: currentRoomId, targetId });
             actionArea.innerHTML = '<p>已选择目标，等待最终结果...</p>';
+        }
+        function renderLadyOfTheLakeChoice() {
+            actionArea.innerHTML = '<h4>🧜‍♀️ 湖中女神: 选择一位玩家查验身份</h4>';
+            const previousHolders = gameState.ladyOfTheLake.previousHolders;
+            gameState.players.forEach(player => {
+                if (player.id !== myPlayerId && !previousHolders.includes(player.id)) {
+                    const btn = document.createElement('button');
+                    btn.style.margin = '5px';
+                    btn.textContent = `查验 ${player.name}`;
+                    btn.onclick = () => submitLadyChoice(player.id);
+                    actionArea.appendChild(btn);
+                }
+            });
+        }
+        function submitLadyChoice(targetId) {
+            socket.emit('useLadyOfTheLake', { roomId: currentRoomId, targetId });
+            actionArea.innerHTML = '<p>已选择，等待结果...</p>';
         }
         function showNotification(message) {
             const notification = document.getElementById('notification');
