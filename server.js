@@ -63,17 +63,6 @@ const gameSetups = {
     },
 };
 
-
-//const gameSetups = {
-//    5: { good: 3, evil: 2, missionTeam: [2, 3, 2, 3, 3] },
-//    6: { good: 4, evil: 2, missionTeam: [2, 3, 4, 3, 4] },
-//    7: { good: 4, evil: 3, missionTeam: [2, 3, 3, 4, 4], twoFailsRequired: true },
-//    8: { good: 5, evil: 3, missionTeam: [3, 4, 4, 5, 5], twoFailsRequired: true },
-//    9: { good: 6, evil: 3, missionTeam: [3, 4, 4, 5, 5], twoFailsRequired: true },
-//    10: { good: 6, evil: 4, missionTeam: [3, 4, 4, 5, 5], twoFailsRequired: true },
-//};
-
-
 io.on('connection', (socket) => {
     console.log(`A user connected: ${socket.id}`);
 
@@ -87,7 +76,6 @@ io.on('connection', (socket) => {
             gameState: { status: 'lobby' }
         };
         socket.emit('roomCreated', roomId);
-        //joinRoom(socket, roomId, playerName);
     });
 
     socket.on('joinRoom', ({ roomId, playerName }) => {
@@ -100,9 +88,7 @@ io.on('connection', (socket) => {
             return;
         }
         joinRoom(socket, roomId, playerName);
-        socket.emit('joinSuccess', roomId); 
-    
-        //joinRoom(socket, roomId, playerName);
+        socket.emit('joinSuccess', roomId);
     });
 
     socket.on('startGame', (roomId) => {
@@ -110,8 +96,8 @@ io.on('connection', (socket) => {
         if (!room) return;
         const playerSockets = room.players.map(p => p.id);
         if (socket.id !== playerSockets[0]) {
-             socket.emit('error', '只有房主可以开始游戏');
-             return;
+            socket.emit('error', '只有房主可以开始游戏');
+            return;
         }
         const numPlayers = room.players.length;
         if (!gameSetups[numPlayers]) {
@@ -121,7 +107,7 @@ io.on('connection', (socket) => {
 
         initializeGame(roomId);
     });
-    
+
     socket.on('proposeTeam', ({roomId, team}) => {
         console.log(`[房间 ${roomId}] 收到了队伍提案事件，队伍成员:`, team);
         const room = rooms[roomId];
@@ -130,40 +116,47 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // 更新游戏状态
         room.gameState.proposedTeam = team;
         room.gameState.status = 'voting';
-        room.gameState.votes = {}; // 重置当前轮的投票记录
+        room.gameState.votes = {};
 
-        // 向房间内的所有客户端广播最新的游戏状态
         io.to(roomId).emit('gameStateUpdate', room.gameState);
     });
-    
+
     socket.on('voteOnTeam', ({roomId, vote}) => {
         const room = rooms[roomId];
         if(!room) return;
         room.gameState.votes[socket.id] = vote;
 
-        // Check if all votes are in
         if(Object.keys(room.gameState.votes).length === room.players.length) {
             const approvals = Object.values(room.gameState.votes).filter(v => v === 'approve').length;
-            if(approvals > room.players.length / 2) {
-                // Vote passed
+            const passed = approvals > room.players.length / 2;
+
+            // ✨ **NEW**: Record vote history
+            const logEntry = {
+                quest: room.gameState.missionRound + 1,
+                proposal: room.gameState.voteTrack + 1,
+                leader: room.players[room.gameState.leaderIndex].name,
+                team: room.gameState.proposedTeam.map(id => room.players.find(p => p.id === id).name),
+                votes: { ...room.gameState.votes }, // Create a copy
+                result: passed ? 'passed' : 'failed'
+            };
+            room.gameState.proposalHistory.push(logEntry);
+
+            if(passed) {
                 room.gameState.status = 'mission';
-                room.gameState.missionVotes = {}; // Reset mission votes
+                room.gameState.missionVotes = {};
             } else {
-                // Vote failed
                 room.gameState.voteTrack++;
                 if (room.gameState.voteTrack >= 5) {
-                    // 5 failed votes, evil wins
                     endGame(roomId, 'evil', '队伍连续5次投票失败');
                     return;
                 }
                 nextLeader(room);
                 room.gameState.status = 'proposing';
             }
-             io.to(roomId).emit('voteResult', { votes: room.gameState.votes, passed: approvals > room.players.length / 2 });
-             setTimeout(() => io.to(roomId).emit('gameStateUpdate', room.gameState), 3000);
+            io.to(roomId).emit('voteResult', { votes: room.gameState.votes, passed });
+            setTimeout(() => io.to(roomId).emit('gameStateUpdate', room.gameState), 3000);
         }
     });
 
@@ -171,22 +164,19 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if(!room) return;
         room.gameState.missionVotes[socket.id] = vote;
-        
+
         const teamSize = gameSetups[room.players.length].missionTeam[room.gameState.missionRound];
         if(Object.keys(room.gameState.missionVotes).length === teamSize) {
             const fails = Object.values(room.gameState.missionVotes).filter(v => v === 'fail').length;
-            
-            const twoFailsNeeded = gameSetups[room.players.length].twoFailsRequired && room.gameState.missionRound === 3; // 第四轮任务
-            
+
+            const twoFailsNeeded = gameSetups[room.players.length].twoFailsRequired && room.gameState.missionRound === 3;
+
             if (fails > 0 && (!twoFailsNeeded || fails > 1)) {
-                // Mission failed
                 room.gameState.missionResults.push('fail');
             } else {
-                // Mission success
                 room.gameState.missionResults.push('success');
             }
-            
-            // Check for game end
+
             const totalFails = room.gameState.missionResults.filter(r => r === 'fail').length;
             const totalSuccesses = room.gameState.missionResults.filter(r => r === 'success').length;
 
@@ -195,14 +185,11 @@ io.on('connection', (socket) => {
                 return;
             }
             if (totalSuccesses >= 3) {
-                // 原代码: endGame(roomId, 'good', '3次任务成功');
-                // --- 修改为 ---
                 room.gameState.status = 'assassination';
-                io.to(roomId).emit('gameStateUpdate', room.gameState); // 广播进入刺杀阶段
+                io.to(roomId).emit('gameStateUpdate', room.gameState);
                 return;
             }
 
-            // Next round
             room.gameState.missionRound++;
             room.gameState.voteTrack = 0;
             nextLeader(room);
@@ -214,7 +201,6 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
-        // Find which room the player was in and remove them
         for (const roomId in rooms) {
             const room = rooms[roomId];
             const playerIndex = room.players.findIndex(p => p.id === socket.id);
@@ -224,9 +210,8 @@ io.on('connection', (socket) => {
                     delete rooms[roomId];
                 } else {
                     io.to(roomId).emit('playerLeft', { players: room.players });
-                    // Simple reset if game in progress. More complex handling is needed for production.
                     if (room.gameState.status !== 'lobby') {
-                         endGame(roomId, null, '有玩家掉线，游戏结束'); //FIXME 增加鲁棒性
+                        endGame(roomId, null, '有玩家掉线，游戏结束');
                     }
                 }
                 break;
@@ -237,15 +222,13 @@ io.on('connection', (socket) => {
     socket.on('assassinate', ({ roomId, targetId }) => {
         const room = rooms[roomId];
         if (!room || room.players.find(p => p.id === socket.id)?.role !== ROLES.ASSASSIN) {
-            return; // 非法操作
+            return;
         }
 
         const targetPlayer = room.players.find(p => p.id === targetId);
         if (targetPlayer.role === ROLES.MERLIN) {
-            // 刺杀成功
             endGame(roomId, 'evil', '刺客成功刺杀了梅林！');
         } else {
-            // 刺杀失败
             endGame(roomId, 'good', '刺客没能找到梅林，好人胜利！');
         }
     });
@@ -264,8 +247,7 @@ function initializeGame(roomId) {
     const numPlayers = room.players.length;
     const setup = gameSetups[numPlayers];
 
-    // 1. 分配角色
-    let rolesToAssign = [...setup.roles].sort(() => Math.random() - 0.5); // 随机打乱角色
+    let rolesToAssign = [...setup.roles].sort(() => Math.random() - 0.5);
     const evilRoles = [ROLES.MORGANA, ROLES.ASSASSIN, ROLES.MORDRED, ROLES.MINION, ROLES.OBERON];
 
     room.players.forEach((player, i) => {
@@ -273,46 +255,32 @@ function initializeGame(roomId) {
         player.alignment = evilRoles.includes(player.role) ? ALIGNMENT.EVIL : ALIGNMENT.GOOD;
     });
 
-    // 2. 根据角色分发情报
     const evilPlayers = room.players.filter(p => p.alignment === ALIGNMENT.EVIL);
-    const evilNames = evilPlayers.map(p => p.name);
-
+    
     room.players.forEach(player => {
-        let roleInfo = {
-            description: '',
-            players: []
-        };
+        let roleInfo = { description: '', players: [] };
 
         switch (player.role) {
             case ROLES.MERLIN:
                 roleInfo.description = '你知道以下玩家是坏人:';
-                roleInfo.players = evilPlayers
-                    .filter(p => p.role !== ROLES.MORDRED) // 梅林看不到莫德雷德
-                    .map(p => p.name);
+                roleInfo.players = evilPlayers.filter(p => p.role !== ROLES.MORDRED).map(p => p.name);
                 break;
             case ROLES.PERCIVAL:
                 roleInfo.description = '你看到以下两位玩家是梅林和莫甘娜 (顺序随机):';
-                roleInfo.players = room.players
-                    .filter(p => p.role === ROLES.MERLIN || p.role === ROLES.MORGANA)
-                    .map(p => p.name)
-                    .sort(() => Math.random() - 0.5); // 随机排序
+                roleInfo.players = room.players.filter(p => p.role === ROLES.MERLIN || p.role === ROLES.MORGANA).map(p => p.name).sort(() => Math.random() - 0.5);
                 break;
             case ROLES.MORGANA:
             case ROLES.ASSASSIN:
             case ROLES.MINION:
             case ROLES.MORDRED:
                 roleInfo.description = '你的坏人同伙是:';
-                roleInfo.players = evilPlayers
-                    .filter(p => p.role !== ROLES.OBERON && p.name !== player.name) // 1. 先根据角色和名字过滤玩家对象
-                    .map(p => p.name);                                              // 2. 然后再提取出名字
+                roleInfo.players = evilPlayers.filter(p => p.role !== ROLES.OBERON && p.name !== player.name).map(p => p.name);
                 break;
             case ROLES.OBERON:
                 roleInfo.description = '你是奥伯伦，你不知道其他坏人，其他坏人也不知道你。';
-                roleInfo.players = [];
                 break;
             case ROLES.LOYAL_SERVANT:
                 roleInfo.description = '你是忠诚的仆人，你不知道其他人的身份。';
-                roleInfo.players = [];
                 break;
         }
 
@@ -324,17 +292,17 @@ function initializeGame(roomId) {
         io.to(player.id).emit('roleAssigned', payload);
     });
 
-    // 3. 设置初始游戏状态
     room.gameState = {
         status: 'proposing',
-        players: room.players.map(p => ({id: p.id, name: p.name})), // 只发送非机密信息
+        players: room.players.map(p => ({id: p.id, name: p.name})),
         missionRound: 0,
         leaderIndex: Math.floor(Math.random() * numPlayers),
         voteTrack: 0,
         missionResults: [],
-        setup: { // 客户端需要知道每轮任务人数
-             missionTeam: setup.missionTeam,
-             twoFailsRequired: !!setup.twoFailsRequired
+        proposalHistory: [], // ✨ **NEW**: Initialize history array
+        setup: {
+            missionTeam: setup.missionTeam,
+            twoFailsRequired: !!setup.twoFailsRequired
         }
     };
 
@@ -356,12 +324,10 @@ function endGame(roomId, winner, reason) {
         reason,
         roles: room.players.map(p => ({name: p.name, role: p.role, alignment: p.alignment}))
     });
-    // Clean up room after a delay
     setTimeout(() => {
         delete rooms[roomId];
     }, 60000);
 }
-
 
 server.listen(PORT, () => {
     console.log(`Server listening on *:${PORT}`);

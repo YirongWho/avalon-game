@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF--8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>阿瓦隆在线</title>
     <style>
@@ -16,59 +16,40 @@
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
         #game-board { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
         #players-info, #game-info { padding: 15px; border: 1px solid #eee; border-radius: 5px; }
-        #game-info {
-            display: flex;
-            flex-direction: column;
-        }
-        #game-status {
-            margin-top: 5px; /* 与上方的面板隔开一点距离 */
-            margin-bottom: 15px; /* 与下方的行动区隔开距离 */
-            text-align: center;
-            font-weight: bold;
-            color: #495057;
-        }
-        .info-block {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 15px;
-        }
-
-        .info-block p {
-            margin: 8px 0;
-        }
-
-        #game-info h4 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 8px;
-        }
+        #game-info { display: flex; flex-direction: column; }
+        #game-status { margin-top: 5px; margin-bottom: 15px; text-align: center; font-weight: bold; color: #495057; }
+        .info-block { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-bottom: 15px; }
+        .info-block p { margin: 8px 0; }
+        #game-info h4 { margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         #players-list label { display: block; padding: 5px; }
         .player-item.leader { font-weight: bold; color: #d9534f; }
         .player-item.on-team { background-color: #dff0d8; }
         .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 15px 25px; border-radius: 5px; z-index: 1000; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 30px; border-radius: 8px; text-align: center; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; text-align: center; max-height: 80vh; overflow-y: auto;}
         #mission-markers { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
         .mission-marker { width: 40px; height: 40px; border: 2px solid #ccc; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
         .mission-marker.success { background-color: #5cb85c; color: white; border-color: #4cae4c; }
         .mission-marker.fail { background-color: #d9534f; color: white; border-color: #d43f3a; }
         .vote-track-marker { width: 20px; height: 20px; border: 1px solid #333; border-radius: 50%; }
         .vote-track-marker.active { background-color: #d9534f; }
+        
+        /* ✨ **NEW**: Log Styles */
+        #log-button { background-color: #6c757d; margin-top: 10px; }
+        #log-button:hover { background-color: #5a6268; }
+        #log-modal-content { text-align: left; max-width: 500px; width: 90%;}
+        .log-entry { border-bottom: 1px solid #eee; padding: 10px 0; }
+        .log-entry:last-child { border-bottom: none; }
+        .log-entry h5 { margin: 0 0 5px 0; }
+        .log-votes { font-size: 0.9em; }
     </style>
 </head>
 <body>
     <div class="container">
         <div id="login-view">
             <h1>阿瓦隆</h1>
-            <div class="input-group">
-                <input type="text" id="player-name" placeholder="输入你的昵称">
-            </div>
-            <div class="input-group">
-                <input type="text" id="room-id-input" placeholder="输入房间号 (留空则创建)">
-            </div>
+            <div class="input-group"><input type="text" id="player-name" placeholder="输入你的昵称"></div>
+            <div class="input-group"><input type="text" id="room-id-input" placeholder="输入房间号 (留空则创建)"></div>
             <button id="join-btn">加入/创建房间</button>
         </div>
 
@@ -84,13 +65,14 @@
                 <div id="players-info">
                     <h3>玩家列表</h3>
                     <div id="players-list"></div>
+                    <button id="log-button">查看游戏日志</button>
                 </div>
                 <div id="game-info">
                     <div class="info-block">
                         <h4>我的情报</h4>
                         <p><strong>身份:</strong> <span id="my-role"></span></p>
-                        <p id="teammates-info" style="min-height: 2.5em;"></p> </div>
-
+                        <p id="teammates-info" style="min-height: 2.5em;"></p>
+                    </div>
                     <div class="info-block">
                         <h4>游戏面板</h4>
                         <strong>任务进度:</strong>
@@ -98,7 +80,6 @@
                         <strong>投票轨道 (<span id="vote-track-count">0</span>/5):</strong>
                         <div id="vote-track" style="display: flex; gap: 5px; margin-top: 5px;"></div>
                     </div>
-
                     <div id="game-status"></div>
                     <div id="action-area"></div>
                 </div>
@@ -110,28 +91,30 @@
     <div id="modal" class="hidden modal-overlay">
         <div class="modal-content" id="modal-content"></div>
     </div>
+    
+    <div id="log-modal" class="hidden modal-overlay">
+        <div class="modal-content" id="log-modal-content">
+            <h2 style="margin-top:0;">游戏日志</h2>
+            <div id="log-entries"></div>
+            <button id="close-log-btn" style="margin-top: 20px;">关闭</button>
+        </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
 
-        // 视图元素
+        // ... (previous view elements)
         const loginView = document.getElementById('login-view');
         const lobbyView = document.getElementById('lobby-view');
         const gameView = document.getElementById('game-view');
-
-        // 输入和按钮
         const playerNameInput = document.getElementById('player-name');
         const roomIdInput = document.getElementById('room-id-input');
         const joinBtn = document.getElementById('join-btn');
         const startGameBtn = document.getElementById('start-game-btn');
-
-        // 显示元素
         const roomIdDisplay = document.getElementById('room-id-display');
         const lobbyPlayersList = document.getElementById('lobby-players-list');
         const playerCount = document.getElementById('player-count');
-        
-        // 游戏元素
         const playersListDiv = document.getElementById('players-list');
         const myRoleDisplay = document.getElementById('my-role');
         const teammatesInfo = document.getElementById('teammates-info');
@@ -141,104 +124,74 @@
         const gameStatusDiv = document.getElementById('game-status');
         const actionArea = document.getElementById('action-area');
         
-        // 游戏状态变量
+        // ✨ **NEW**: Log elements
+        const logButton = document.getElementById('log-button');
+        const logModal = document.getElementById('log-modal');
+        const closeLogBtn = document.getElementById('close-log-btn');
+        const logEntriesDiv = document.getElementById('log-entries');
+
+        // ... (previous game state variables)
         let myPlayerId = '';
         let currentRoomId = '';
         let gameState = null;
         let myRole = '';
         let myAlignment = '';
+        const roleTranslations = { 'Merlin': '梅林', 'Percival': '派西维尔', 'Loyal_Servant': '亚瑟的忠臣', 'Morgana': '莫甘娜', 'Assassin': '刺客', 'Mordred': '莫德雷德', 'Minion': '莫德雷德的爪牙', 'Oberon': '奥伯伦' };
 
-        // (已修正) 角色翻译对象
-        const roleTranslations = {
-            'Merlin': '梅林',
-            'Percival': '派西维尔',
-            'Loyal_Servant': '亚瑟的忠臣',
-            'Morgana': '莫甘娜',
-            'Assassin': '刺客',
-            'Mordred': '莫德雷德',
-            'Minion': '莫德雷德的爪牙', 
-            'Oberon': '奥伯伦'
-        };
-
-        // --- 事件监听 ---
+        // --- Event Listeners ---
         joinBtn.addEventListener('click', () => {
             const playerName = playerNameInput.value.trim();
-            if (!playerName) {
-                showNotification('请输入昵称');
-                return;
-            }
+            if (!playerName) { showNotification('请输入昵称'); return; }
             myPlayerId = socket.id;
             const roomId = roomIdInput.value.trim().toUpperCase();
-            if (roomId) {
-                socket.emit('joinRoom', { roomId, playerName });
-            } else {
-                socket.emit('createRoom', { playerName });
-            }
+            if (roomId) { socket.emit('joinRoom', { roomId, playerName }); } 
+            else { socket.emit('createRoom', { playerName }); }
         });
+        startGameBtn.addEventListener('click', () => socket.emit('startGame', currentRoomId));
+        
+        // ✨ **NEW**: Log button listeners
+        logButton.addEventListener('click', () => logModal.classList.remove('hidden'));
+        closeLogBtn.addEventListener('click', () => logModal.classList.add('hidden'));
+        logModal.addEventListener('click', (e) => { if (e.target === logModal) logModal.classList.add('hidden'); }); // Click outside to close
 
-        startGameBtn.addEventListener('click', () => {
-            socket.emit('startGame', currentRoomId);
-        });
-
-        // --- Socket.IO 监听 ---
-        socket.on('connect', () => {
-            myPlayerId = socket.id;
-        });
-
+        // --- Socket.IO Listeners ---
+        socket.on('connect', () => { myPlayerId = socket.id; });
         socket.on('roomCreated', (roomId) => {
             currentRoomId = roomId;
             const playerName = playerNameInput.value.trim();
-            console.log(`房间 ${roomId} 创建成功，现在作为 ${playerName} 加入...`);
             socket.emit('joinRoom', { roomId: currentRoomId, playerName: playerName });
             showLobby();
         });
-
-        socket.on('joinSuccess', (roomId) => {
-            console.log(`成功加入房间 ${roomId}，设置 currentRoomId`);
-            currentRoomId = roomId;
-        });
-
-        // (已修正) 只有一个 playerJoined 监听器
+        socket.on('joinSuccess', (roomId) => { currentRoomId = roomId; });
         socket.on('playerJoined', ({ players }) => {
             showLobby();
             updateLobbyPlayers(players);
         });
-        
         socket.on('playerLeft', ({ players }) => {
-            if (gameView.classList.contains('hidden')) {
-                updateLobbyPlayers(players);
-            }
+            if (gameView.classList.contains('hidden')) { updateLobbyPlayers(players); }
         });
-
         socket.on('gameStarted', () => {
             loginView.classList.add('hidden');
             lobbyView.classList.add('hidden');
             gameView.classList.remove('hidden');
         });
-        
         socket.on('roleAssigned', ({ role, alignment, roleInfo }) => {
             myRole = role;
             myAlignment = alignment;
-            
             const roleName = roleTranslations[role] || role;
             const alignmentText = alignment === 'good' ? '好人' : '坏人';
-            
             myRoleDisplay.textContent = `${roleName} (${alignmentText})`;
             myRoleDisplay.style.color = alignment === 'good' ? 'blue' : 'red';
-            
             if (roleInfo && roleInfo.players.length > 0) {
                 teammatesInfo.textContent = `${roleInfo.description} ${roleInfo.players.join(', ')}`;
-            } else {
-                teammatesInfo.textContent = '你没有获得任何特殊情报。';
-            }
+            } else { teammatesInfo.textContent = '你没有获得任何特殊情报。'; }
         });
-        
         socket.on('gameStateUpdate', (newGameState) => {
             console.log("【收到更新】服务器发来了新的游戏状态:", newGameState);
             gameState = newGameState;
             renderGameState();
+            updateLog(gameState.proposalHistory); // ✨ **NEW**: Update log on every state change
         });
-
         socket.on('voteResult', ({ votes, passed }) => {
             let resultText = `投票结果: ${passed ? '通过' : '否决'}<br>`;
             for(const playerId in votes) {
@@ -248,12 +201,10 @@
             showModal(resultText);
             setTimeout(hideModal, 2500);
         });
-
         socket.on('missionResult', ({ result, fails }) => {
             showModal(`任务${result === 'success' ? '成功' : '失败'}! 失败票数: ${fails}`);
             setTimeout(hideModal, 3500);
         });
-        
         socket.on('gameOver', ({ winner, reason, roles }) => {
             let roleText = '<h4>最终身份:</h4>';
             roles.forEach(p => {
@@ -264,34 +215,28 @@
             const winnerText = winner ? `${winner === 'good' ? '好人' : '坏人'}方胜利!` : '';
             showModal(`<h2>游戏结束</h2><p>${winnerText}</p><p>${reason}</p>${roleText}`);
         });
+        socket.on('error', (message) => showNotification(message));
 
-        socket.on('error', (message) => {
-            showNotification(message);
-        });
-
-        // --- 渲染函数 ---
+        // --- Rendering Functions ---
         function showLobby() {
             loginView.classList.add('hidden');
             lobbyView.classList.remove('hidden');
             roomIdDisplay.textContent = currentRoomId;
         }
-
         function updateLobbyPlayers(players) {
             lobbyPlayersList.innerHTML = '';
             players.forEach((p, index) => {
                 const li = document.createElement('li');
-                li.textContent = p.name;
-                if (index === 0) li.textContent += " (房主)";
+                li.textContent = p.name + (index === 0 ? " (房主)" : "");
                 lobbyPlayersList.appendChild(li);
             });
             playerCount.textContent = `${players.length} 人`;
             startGameBtn.disabled = players.length < 5 || players.length > 10;
         }
 
+        // ... (renderGameState and other functions remain largely the same)
         function renderGameState() {
             if (!gameState) return;
-
-            // 更新玩家列表
             playersListDiv.innerHTML = '';
             gameState.players.forEach((player, index) => {
                 const playerEl = document.createElement('div');
@@ -307,8 +252,6 @@
                 }
                 playersListDiv.appendChild(playerEl);
             });
-
-            // 更新任务和投票轨道
             missionMarkersDiv.innerHTML = '';
             for(let i = 0; i < 5; i++) {
                 const marker = document.createElement('div');
@@ -329,8 +272,6 @@
                 }
                 voteTrackDiv.appendChild(marker);
             }
-
-            // 更新状态和行动区
             actionArea.innerHTML = '';
             const isLeader = gameState.players[gameState.leaderIndex].id === myPlayerId;
             const isOnTeam = gameState.proposedTeam && gameState.proposedTeam.includes(myPlayerId);
@@ -338,9 +279,7 @@
             switch (gameState.status) {
                 case 'proposing':
                     gameStatusDiv.textContent = `第 ${gameState.missionRound + 1} 轮 - ${gameState.players[gameState.leaderIndex].name} 正在组建队伍 (需要 ${gameState.setup.missionTeam[gameState.missionRound]} 人)`;
-                    if (isLeader) {
-                        renderTeamProposal();
-                    }
+                    if (isLeader) { renderTeamProposal(); }
                     break;
                 case 'voting':
                     gameStatusDiv.textContent = '请对当前队伍投票';
@@ -348,35 +287,56 @@
                     break;
                 case 'mission':
                     gameStatusDiv.textContent = '被选中的队员请执行任务';
-                    if (isOnTeam) {
-                        renderMissionVoteButtons();
-                    }
+                    if (isOnTeam) { renderMissionVoteButtons(); }
                     break;
                 case 'assassination':
                     gameStatusDiv.textContent = '任务3次成功！轮到刺客行动了...';
-                    if (myRole === 'Assassin') {
-                        renderAssassinationChoice();
-                    } else {
-                        actionArea.innerHTML = '<p>等待刺客选择刺杀对象...</p>';
-                    }
+                    if (myRole === 'Assassin') { renderAssassinationChoice(); } 
+                    else { actionArea.innerHTML = '<p>等待刺客选择刺杀对象...</p>'; }
                     break;
             }
         }
-
+        
+        // ✨ **NEW**: Log Rendering Function
+        function updateLog(history) {
+            if (!history) {
+                logEntriesDiv.innerHTML = '<p>暂无记录。</p>';
+                return;
+            }
+            logEntriesDiv.innerHTML = history.slice().reverse().map(entry => {
+                const approves = [];
+                const rejects = [];
+                for (const playerId in entry.votes) {
+                    const playerName = gameState.players.find(p => p.id === playerId)?.name || '未知玩家';
+                    if (entry.votes[playerId] === 'approve') {
+                        approves.push(playerName);
+                    } else {
+                        rejects.push(playerName);
+                    }
+                }
+                
+                return `
+                    <div class="log-entry">
+                        <h5>第${entry.quest}轮 / 第${entry.proposal}次提议 (${entry.result === 'passed' ? '通过' : '否决'})</h5>
+                        <p><strong>队长:</strong> ${entry.leader}</p>
+                        <p><strong>队伍:</strong> ${entry.team.join(', ')}</p>
+                        <div class="log-votes">
+                            <p style="color:green; margin:2px 0;"><strong>同意 (${approves.length}):</strong> ${approves.join(', ') || '无'}</p>
+                            <p style="color:red; margin:2px 0;"><strong>反对 (${rejects.length}):</strong> ${rejects.join(', ') || '无'}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
         function renderTeamProposal() {
             actionArea.innerHTML = '<h4>选择你的队员:</h4>';
             const teamSize = gameState.setup.missionTeam[gameState.missionRound];
             gameState.players.forEach(player => {
-                actionArea.innerHTML += `
-                    <label>
-                        <input type="checkbox" class="team-checkbox" value="${player.id}">
-                        ${player.name}
-                    </label><br>
-                `;
+                actionArea.innerHTML += `<label><input type="checkbox" class="team-checkbox" value="${player.id}"> ${player.name}</label><br>`;
             });
             const proposeBtn = document.createElement('button');
             proposeBtn.textContent = `确认选择 ${teamSize} 人`;
-
             proposeBtn.onclick = () => {
                 const selected = Array.from(document.querySelectorAll('.team-checkbox:checked')).map(cb => cb.value);
                 if (selected.length !== teamSize) {
@@ -387,33 +347,27 @@
             };
             actionArea.appendChild(proposeBtn);
         }
-        
         function renderTeamVoteButtons() {
             actionArea.innerHTML = `
                 <button onclick="submitTeamVote('approve')">👍 同意</button>
                 <button onclick="submitTeamVote('reject')" style="background-color: #d9534f;">👎 反对</button>
             `;
         }
-
         function submitTeamVote(vote) {
             socket.emit('voteOnTeam', { roomId: currentRoomId, vote });
             actionArea.innerHTML = '<p>已投票，等待其他玩家...</p>';
         }
-
-        // (已修正) 正确的投票按钮渲染函数
         function renderMissionVoteButtons() {
             let buttons = `<button onclick="submitMissionVote('success')" style="background-color: #5cb85c;">✅ 任务成功</button>`;
-            if (myAlignment === 'evil') { // 使用 myAlignment 判断
+            if (myAlignment === 'evil') {
                 buttons += `<button onclick="submitMissionVote('fail')" style="background-color: #d9534f;">❌ 任务失败</button>`;
             }
             actionArea.innerHTML = buttons;
         }
-
         function submitMissionVote(vote) {
             socket.emit('voteOnMission', { roomId: currentRoomId, vote });
             actionArea.innerHTML = '<p>已出票，等待其他队员...</p>';
         }
-
         function renderAssassinationChoice() {
             actionArea.innerHTML = '<h4>选择你要刺杀的玩家:</h4>';
             gameState.players.forEach(player => {
@@ -426,27 +380,22 @@
                 }
             });
         }
-
         function submitAssassination(targetId) {
             socket.emit('assassinate', { roomId: currentRoomId, targetId });
             actionArea.innerHTML = '<p>已选择目标，等待最终结果...</p>';
         }
-
-        // --- 工具函数 ---
         function showNotification(message) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             notification.classList.remove('hidden');
             setTimeout(() => notification.classList.add('hidden'), 3000);
         }
-
         function showModal(content) {
             const modal = document.getElementById('modal');
             const modalContent = document.getElementById('modal-content');
             modalContent.innerHTML = content;
             modal.classList.remove('hidden');
         }
-        
         function hideModal() {
             document.getElementById('modal').classList.add('hidden');
         }
