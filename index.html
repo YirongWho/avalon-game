@@ -13,6 +13,8 @@
         input[type="text"], button { width: 100%; padding: 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ddd; box-sizing: border-box; }
         button { background-color: #007bff; color: white; border: none; cursor: pointer; transition: background-color 0.2s; }
         button:hover { background-color: #0056b3; }
+        button.danger-btn { background-color: #dc3545; } /* ✨ MODIFICATION: 危险操作按钮样式 */
+        button.danger-btn:hover { background-color: #c82333; } /* ✨ MODIFICATION: 危险操作按钮样式 */
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
         #game-board { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
         #players-info, #game-info { padding: 15px; border: 1px solid #eee; border-radius: 5px; }
@@ -22,24 +24,22 @@
         .info-block p { margin: 8px 0; }
         #game-info h4 { margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         #players-list label { display: block; padding: 5px; }
+        .player-item { padding: 4px; border-radius: 3px; } /* ✨ MODIFICATION: 基础样式 */
         .player-item.leader { font-weight: bold; color: #d9534f; }
         .player-item.lady { font-weight: bold; color: #17a2b8; }
         .player-item.on-team { background-color: #dff0d8; }
+        /* ✨ MODIFICATION START: 掉线玩家的样式 */
+        .player-item.disconnected {
+            color: #999;
+            font-style: italic;
+            text-decoration: line-through;
+        }
+        /* ✨ MODIFICATION END */
         .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 15px 25px; border-radius: 5px; z-index: 1000; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
         .modal-content { background: white; padding: 30px; border-radius: 8px; text-align: center; max-height: 80vh; overflow-y: auto;}
         #mission-markers { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
-        .mission-marker {
-            position: relative; /* ✨ 新增: 为+1标记提供定位锚点 */
-            width: 40px;
-            height: 40px;
-            border: 2px solid #ccc;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-        }
+        .mission-marker { position: relative; width: 40px; height: 40px; border: 2px solid #ccc; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
         .mission-marker.success { background-color: #5cb85c; color: white; border-color: #4cae4c; }
         .mission-marker.fail { background-color: #d9534f; color: white; border-color: #d43f3a; }
         .vote-track-marker { width: 20px; height: 20px; border: 1px solid #333; border-radius: 50%; }
@@ -51,17 +51,7 @@
         .log-entry:last-child { border-bottom: none; }
         .log-entry h5 { margin: 0 0 5px 0; }
         .log-votes { font-size: 0.9em; }
-
-        /* ✨ 新增: +1标记的样式 */
-        .two-fails-indicator {
-            position: absolute;
-            top: 2px;
-            right: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            line-height: 1;
-            text-shadow: 0 0 3px rgba(0,0,0,0.5);
-        }
+        .two-fails-indicator { position: absolute; top: 2px; right: 4px; font-size: 12px; font-weight: bold; line-height: 1; text-shadow: 0 0 3px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -82,7 +72,8 @@
             <h3>玩家列表 (<span id="player-count"></span>):</h3>
             <ul id="lobby-players-list"></ul>
             <button id="start-game-btn">开始游戏 (5-10人)</button>
-        </div>
+            <button id="close-room-btn" class="danger-btn hidden" style="margin-top: 10px;">关闭房间</button>
+            </div>
 
         <div id="game-view" class="hidden">
             <div id="game-board">
@@ -90,7 +81,8 @@
                     <h3>玩家列表</h3>
                     <div id="players-list"></div>
                     <button id="log-button">查看游戏日志</button>
-                </div>
+                    <button id="force-end-game-btn" class="danger-btn hidden" style="margin-top: 10px;">强制结束游戏</button>
+                    </div>
                 <div id="game-info">
                     <div class="info-block">
                         <h4>我的情报</h4>
@@ -129,15 +121,35 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        // ✨ MODIFICATION START: socket连接选项，开启重连
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+        });
+        // ✨ MODIFICATION END
 
+        // Views and Inputs
         const loginView = document.getElementById('login-view');
         const lobbyView = document.getElementById('lobby-view');
         const gameView = document.getElementById('game-view');
         const playerNameInput = document.getElementById('player-name');
         const roomIdInput = document.getElementById('room-id-input');
+        
+        // Buttons
         const joinBtn = document.getElementById('join-btn');
         const startGameBtn = document.getElementById('start-game-btn');
+        const logButton = document.getElementById('log-button');
+        const closeLogBtn = document.getElementById('close-log-btn');
+        const closeRoomBtn = document.getElementById('close-room-btn'); // ✨ MODIFICATION: 新增按钮
+        const forceEndGameBtn = document.getElementById('force-end-game-btn'); // ✨ MODIFICATION: 新增按钮
+        // Buttons
+        const leaveRoomBtn = document.createElement('button'); // 动态创建退出房间按钮
+        leaveRoomBtn.textContent = '退出房间';
+        leaveRoomBtn.classList.add('danger-btn', 'hidden'); // 默认隐藏
+        leaveRoomBtn.style.marginTop = '10px';
+        lobbyView.appendChild(leaveRoomBtn); //
+        // Displays
         const roomIdDisplay = document.getElementById('room-id-display');
         const lobbyPlayersList = document.getElementById('lobby-players-list');
         const playerCount = document.getElementById('player-count');
@@ -150,52 +162,214 @@
         const voteTrackCount = document.getElementById('vote-track-count');
         const gameStatusDiv = document.getElementById('game-status');
         const actionArea = document.getElementById('action-area');
-        const logButton = document.getElementById('log-button');
         const logModal = document.getElementById('log-modal');
-        const closeLogBtn = document.getElementById('close-log-btn');
         const logEntriesDiv = document.getElementById('log-entries');
 
-        let myPlayerId = '';
+        // ✨ MODIFICATION START: 重构状态变量
+        let myPersistentPlayerId = null; // 永久ID，用于重连
         let currentRoomId = '';
         let gameState = null;
         let myRole = '';
         let myAlignment = '';
+        let amIHost = false; // 是否是房主
+        // ✨ MODIFICATION END
+
         const roleTranslations = { 'Merlin': '梅林', 'Percival': '派西维尔', 'Loyal_Servant': '亚瑟的忠臣', 'Morgana': '莫甘娜', 'Assassin': '刺客', 'Mordred': '莫德雷德', 'Minion': '莫德雷德的爪牙', 'Oberon': '奥伯伦' };
 
+        // --- Event Listeners ---
         joinBtn.addEventListener('click', () => {
             const playerName = playerNameInput.value.trim();
             if (!playerName) { showNotification('请输入昵称'); return; }
-            myPlayerId = socket.id;
             const roomId = roomIdInput.value.trim().toUpperCase();
             if (roomId) { socket.emit('joinRoom', { roomId, playerName }); } 
             else { socket.emit('createRoom', { playerName }); }
         });
-        startGameBtn.addEventListener('click', () => socket.emit('startGame', currentRoomId));
+        // ✨ 新增退出房间按钮的事件监听
+        leaveRoomBtn.addEventListener('click', () => {
+            if (confirm('你确定要退出房间吗？')) {
+                socket.emit('leaveRoom', currentRoomId);
+                resetToLogin(); // 重置到登录页面
+            }
+        });
         
+        startGameBtn.addEventListener('click', () => socket.emit('startGame', currentRoomId));
         logButton.addEventListener('click', () => logModal.classList.remove('hidden'));
         closeLogBtn.addEventListener('click', () => logModal.classList.add('hidden'));
         logModal.addEventListener('click', (e) => { if (e.target === logModal) logModal.classList.add('hidden'); });
 
-        socket.on('connect', () => { myPlayerId = socket.id; });
+        // ✨ MODIFICATION START: 房主按钮的事件监听
+        closeRoomBtn.addEventListener('click', () => {
+            socket.emit('closeRoom', currentRoomId);
+        });
+
+        forceEndGameBtn.addEventListener('click', () => {
+            if (confirm('你确定要强制结束游戏吗？此操作不可逆！')) {
+                socket.emit('forceEndGameByHost', currentRoomId);
+            }
+        });
+        // ✨ MODIFICATION END
+
+        // --- Socket.IO Listeners ---
+
+        // ✨ MODIFICATION START: 页面加载时检查是否需要重连
+        window.addEventListener('load', () => {
+            const storedRoomId = localStorage.getItem('avalonRoomId');
+            const storedPlayerId = localStorage.getItem('avalonPlayerId');
+            if (storedRoomId && storedPlayerId) {
+                console.log(`Found session data, attempting to reconnect to room ${storedRoomId} as player ${storedPlayerId}`);
+                currentRoomId = storedRoomId;
+                myPersistentPlayerId = storedPlayerId;
+                socket.emit('attemptReconnect', { roomId: storedRoomId, playerId: storedPlayerId });
+                showNotification('正在尝试重新连接...');
+            }
+        });
+        // ✨ MODIFICATION END
+        
         socket.on('roomCreated', (roomId) => {
-            currentRoomId = roomId;
             const playerName = playerNameInput.value.trim();
-            socket.emit('joinRoom', { roomId: currentRoomId, playerName: playerName });
-            showLobby();
+            socket.emit('joinRoom', { roomId: roomId, playerName: playerName });
         });
-        socket.on('joinSuccess', (roomId) => { currentRoomId = roomId; });
+        
+        // ✨ MODIFICATION: joinSuccess现在是加入房间的唯一凭证，会返回永久ID
+        socket.on('joinSuccess', ({ roomId, playerId, isHost }) => {
+            console.log(`Successfully joined room ${roomId} with persistent ID ${playerId}`);
+            currentRoomId = roomId;
+            myPersistentPlayerId = playerId;
+            localStorage.setItem('avalonRoomId', roomId);
+            localStorage.setItem('avalonPlayerId', playerId);
+            showLobby();
+
+            amIHost = isHost;
+            if (amIHost) {
+                closeRoomBtn.classList.remove('hidden');
+                leaveRoomBtn.classList.add('hidden');
+            } else {
+                closeRoomBtn.classList.add('hidden');
+                leaveRoomBtn.classList.remove('hidden');
+    }
+        });
+
+        // 修改 playerJoined 事件，动态显示退出按钮
         socket.on('playerJoined', ({ players }) => {
-            showLobby();
             updateLobbyPlayers(players);
+            const me = players.find(p => p.playerId === myPersistentPlayerId);
+            console.log('Current player info:', me);
+            if (me) {
+                amIHost = me.isHost;
+                console.log(`Player joined. Am I host? ${amIHost}`);
+                if (amIHost) {
+                    closeRoomBtn.classList.remove('hidden'); // 房主显示关闭房间按钮
+                    leaveRoomBtn.classList.add('hidden'); // 房主不显示退出按钮
+                } else {
+                    closeRoomBtn.classList.add('hidden'); // 非房主隐藏关闭房间按钮
+                    leaveRoomBtn.classList.remove('hidden'); // 非房主显示退出按钮
+                }
+            }
         });
-        socket.on('playerLeft', ({ players }) => {
-            if (gameView.classList.contains('hidden')) { updateLobbyPlayers(players); }
+        // ✨ 新增 leaveRoom 事件监听
+        socket.on('roomLeft', () => {
+            showNotification('你已退出房间');
+            resetToLogin(); // 重置到登录页面
         });
+        
+        // ✨ MODIFICATION START: 全新的重连相关事件
+        socket.on('reconnectSuccess', ({ room, gameState: newGameState, playerInfo }) => {
+            showNotification('重连成功！');
+            console.log('Reconnect successful. Restoring state:', { room, newGameState, playerInfo });
+
+            // 恢复个人信息
+            const me = room.players.find(p => p.playerId === myPersistentPlayerId);
+            if (me) amIHost = me.isHost;
+            
+            gameState = newGameState;
+
+            // ✨ FIX START: 根据游戏状态决定显示哪个界面
+            if (gameState.status === 'lobby') {
+                // 游戏未开始，显示大厅界面
+                showLobby();
+                updateLobbyPlayers(room.players);
+                // 根据是否房主显示对应按钮
+                if (amIHost) {
+                    closeRoomBtn.classList.remove('hidden');
+                    leaveRoomBtn.classList.add('hidden');
+                } else {
+                    closeRoomBtn.classList.add('hidden');
+                    leaveRoomBtn.classList.remove('hidden');
+                }
+                showNotification('重连成功，返回游戏大厅');
+            } else {
+                // 游戏已开始，显示游戏界面并恢复角色信息
+                loginView.classList.add('hidden');
+                lobbyView.classList.add('hidden');
+                gameView.classList.remove('hidden');
+
+                // 恢复角色信息
+                if (playerInfo) {
+                    myRole = playerInfo.role;
+                    myAlignment = playerInfo.alignment;
+                    const roleName = roleTranslations[myRole] || myRole;
+                    const alignmentText = myAlignment === 'good' ? '好人' : '坏人';
+                    myRoleDisplay.textContent = `${roleName} (${alignmentText})`;
+                    myRoleDisplay.style.color = myAlignment === 'good' ? 'blue' : 'red';
+                    if (playerInfo.roleInfo && playerInfo.roleInfo.players.length > 0) {
+                        teammatesInfo.textContent = `${playerInfo.roleInfo.description} ${playerInfo.roleInfo.players.join(', ')}`;
+                    } else { 
+                        teammatesInfo.textContent = '你没有获得任何特殊情报。'; 
+                    }
+                }
+
+                // 渲染整个游戏界面
+                renderGameState();
+                updateGameLog(gameState.gameLog);
+            }
+            // ✨ FIX END
+        });
+
+        socket.on('reconnectFailed', () => {
+            showNotification('重连失败，游戏可能已结束。');
+            resetToLogin();
+        });
+
+        // 监听玩家连接状态变化
+        socket.on('playerConnectionUpdate', ({ playerId, connected }) => {
+            if (gameState && gameState.players) {
+                const player = gameState.players.find(p => p.playerId === playerId);
+                if (player) {
+                    player.connected = connected;
+                    renderGameState(); // 重新渲染以更新UI
+                }
+            }
+            if (!gameView.classList.contains('hidden')) { // 如果在游戏内
+                const playerInLobby = lobbyPlayersList.querySelector(`[data-player-id="${playerId}"]`);
+                if(playerInLobby) {
+                    playerInLobby.style.textDecoration = connected ? 'none' : 'line-through';
+                    playerInLobby.style.color = connected ? 'inherit' : '#999';
+                }
+            }
+        });
+        // ✨ MODIFICATION END
+
         socket.on('gameStarted', () => {
             loginView.classList.add('hidden');
             lobbyView.classList.add('hidden');
             gameView.classList.remove('hidden');
         });
+
+        // ✨ MODIFICATION START: 监听房间关闭和游戏强制结束事件
+        socket.on('roomClosed', (reason) => {
+            showNotification(reason);
+            resetToLogin();
+        });
+
+        socket.on('gameForciblyEnded', (reason) => {
+            showModal(`<h2>游戏被意外中止</h2><p>${reason}</p>`);
+            setTimeout(() => {
+                hideModal();
+                resetToLogin();
+            }, 4000);
+        });
+        // ✨ MODIFICATION END
+        
         socket.on('roleAssigned', ({ role, alignment, roleInfo }) => {
             myRole = role;
             myAlignment = alignment;
@@ -207,30 +381,36 @@
                 teammatesInfo.textContent = `${roleInfo.description} ${roleInfo.players.join(', ')}`;
             } else { teammatesInfo.textContent = '你没有获得任何特殊情报。'; }
         });
+
         socket.on('gameStateUpdate', (newGameState) => {
             console.log("【收到更新】服务器发来了新的游戏状态:", newGameState);
             gameState = newGameState;
             renderGameState();
             updateGameLog(gameState.gameLog);
         });
+
         socket.on('voteResult', ({ votes, passed }) => {
             let resultText = `投票结果: ${passed ? '通过' : '否决'}<br>`;
+            // ✨ MODIFICATION: 使用playerId查找玩家名字
             for(const playerId in votes) {
-                const playerName = gameState.players.find(p => p.id === playerId)?.name;
+                const playerName = gameState.players.find(p => p.playerId === playerId)?.name;
                 resultText += `${playerName}: ${votes[playerId] === 'approve' ? '同意' : '反对'}<br>`;
             }
             showModal(resultText);
             setTimeout(hideModal, 2500);
         });
+
         socket.on('missionResult', ({ result, fails }) => {
             showModal(`任务${result === 'success' ? '成功' : '失败'}! 失败票数: ${fails}`);
             setTimeout(hideModal, 3500);
         });
+
         socket.on('ladyOfTheLakeResult', ({ targetName, alignment }) => {
             const resultHtml = `<p>🧜‍♀️ 湖中女神: 你看到 <strong>${targetName}</strong> 是 <span style="font-weight:bold; color:${alignment === 'good' ? 'blue' : 'red'};">${alignment === 'good' ? '好人' : '坏人'}</span> 阵营的。</p>`;
             ladyInfoDiv.innerHTML += resultHtml;
             showNotification(`你查验了 ${targetName} 的身份。`);
         });
+
         socket.on('gameOver', ({ winner, reason, roles }) => {
             let roleText = '<h4>最终身份:</h4>';
             roles.forEach(p => {
@@ -240,27 +420,47 @@
             });
             const winnerText = winner ? `${winner === 'good' ? '好人' : '坏人'}方胜利!` : '';
             showModal(`<h2>游戏结束</h2><p>${winnerText}</p><p>${reason}</p>${roleText}`);
+            // ✨ MODIFICATION: 游戏结束后清除本地存储
+            setTimeout(resetToLogin, 10000);
         });
+
         socket.on('error', (message) => showNotification(message));
 
+        // --- Render and Utility Functions ---
         function showLobby() {
             loginView.classList.add('hidden');
             lobbyView.classList.remove('hidden');
             roomIdDisplay.textContent = currentRoomId;
         }
+
+        // ✨ MODIFICATION: 更新大厅玩家列表，显示房主和连接状态
         function updateLobbyPlayers(players) {
             lobbyPlayersList.innerHTML = '';
-            players.forEach((p, index) => {
+            players.forEach(p => {
                 const li = document.createElement('li');
-                li.textContent = p.name + (index === 0 ? " (房主)" : "");
+                li.dataset.playerId = p.playerId; // 添加ID方便查找
+                let text = p.name;
+                if (p.isHost) text += " (房主)";
+                li.textContent = text;
+                if (!p.connected) {
+                    li.style.textDecoration = 'line-through';
+                    li.style.color = '#999';
+                }
                 lobbyPlayersList.appendChild(li);
             });
             playerCount.textContent = `${players.length} 人`;
             startGameBtn.disabled = players.length < 5 || players.length > 10;
         }
 
+        // ✨ MODIFICATION: 核心渲染函数，增加房主按钮显示和掉线状态显示
         function renderGameState() {
             if (!gameState) return;
+            
+            // 更新房主按钮可见性
+            if (amIHost) {
+                forceEndGameBtn.classList.remove('hidden');
+            }
+
             playersListDiv.innerHTML = '';
             gameState.players.forEach((player, index) => {
                 const playerEl = document.createElement('div');
@@ -270,12 +470,16 @@
                     playerEl.classList.add('leader');
                     text += ' (领袖)';
                 }
-                if (gameState.ladyOfTheLake && player.id === gameState.ladyOfTheLake.holderId) {
+                if (gameState.ladyOfTheLake && player.playerId === gameState.ladyOfTheLake.holderId) {
                     playerEl.classList.add('lady');
                     text += ' 🧜‍♀️';
                 }
+                if (!player.connected) {
+                    playerEl.classList.add('disconnected');
+                    text += ' (掉线)';
+                }
                 playerEl.textContent = text;
-                if(gameState.proposedTeam && gameState.proposedTeam.includes(player.id)) {
+                if(gameState.proposedTeam && gameState.proposedTeam.includes(player.playerId)) {
                     playerEl.classList.add('on-team');
                 }
                 playersListDiv.appendChild(playerEl);
@@ -285,15 +489,12 @@
             for(let i = 0; i < 5; i++) {
                 const marker = document.createElement('div');
                 marker.classList.add('mission-marker');
-                
-                // ✨ **修改**: 检查是否为第四轮且需要2张失败票
                 const content = gameState.setup.missionTeam[i];
                 if (i === 3 && gameState.setup.twoFailsRequired) {
                     marker.innerHTML = `${content}<sup class="two-fails-indicator">+1</sup>`;
                 } else {
                     marker.textContent = content;
                 }
-                
                 if(gameState.missionResults[i]) {
                     marker.classList.add(gameState.missionResults[i]);
                 }
@@ -305,15 +506,17 @@
             for (let i = 0; i < 5; i++) {
                 const marker = document.createElement('div');
                 marker.classList.add('vote-track-marker');
-                if (i < gameState.voteTrack) {
-                    marker.classList.add('active');
-                }
+                if (i < gameState.voteTrack) marker.classList.add('active');
                 voteTrackDiv.appendChild(marker);
             }
+            
             actionArea.innerHTML = '';
-            const isLeader = gameState.players[gameState.leaderIndex].id === myPlayerId;
-            const isOnTeam = gameState.proposedTeam && gameState.proposedTeam.includes(myPlayerId);
-            const isLady = gameState.ladyOfTheLake && gameState.ladyOfTheLake.holderId === myPlayerId;
+            const me = gameState.players.find(p => p.playerId === myPersistentPlayerId);
+            if (!me) return;
+
+            const isLeader = gameState.players[gameState.leaderIndex].playerId === myPersistentPlayerId;
+            const isOnTeam = gameState.proposedTeam && gameState.proposedTeam.includes(myPersistentPlayerId);
+            const isLady = gameState.ladyOfTheLake && gameState.ladyOfTheLake.holderId === myPersistentPlayerId;
 
             switch (gameState.status) {
                 case 'proposing':
@@ -334,60 +537,40 @@
                     else { actionArea.innerHTML = '<p>等待刺客选择刺杀对象...</p>'; }
                     break;
                 case 'ladyOfTheLake':
-                    const ladyHolderName = gameState.players.find(p => p.id === gameState.ladyOfTheLake.holderId)?.name;
+                    const ladyHolderName = gameState.players.find(p => p.playerId === gameState.ladyOfTheLake.holderId)?.name;
                     gameStatusDiv.textContent = `湖中女神阶段 - 等待 ${ladyHolderName} 查验玩家身份...`;
-                    if(isLady) {
-                        renderLadyOfTheLakeChoice();
-                    }
+                    if(isLady) { renderLadyOfTheLakeChoice(); }
                     break;
             }
         }
         
         function updateGameLog(gameLog) {
-            if (!gameLog) {
-                logEntriesDiv.innerHTML = '<p>暂无记录。</p>';
-                return;
-            }
+            if (!gameLog) { logEntriesDiv.innerHTML = '<p>暂无记录。</p>'; return; }
             logEntriesDiv.innerHTML = gameLog.slice().reverse().map(entry => {
                 switch(entry.type) {
                     case 'proposal':
                         const approves = [];
                         const rejects = [];
+                        // ✨ MODIFICATION: 使用playerId查找玩家名字
                         for (const playerId in entry.votes) {
-                            const playerName = gameState.players.find(p => p.id === playerId)?.name || '未知玩家';
+                            const playerName = gameState.players.find(p => p.playerId === playerId)?.name || '未知玩家';
                             if (entry.votes[playerId] === 'approve') approves.push(playerName);
                             else rejects.push(playerName);
                         }
-                        return `
-                            <div class="log-entry">
-                                <h5>第${entry.quest}轮 / 第${entry.proposal}次提议 (${entry.result === 'passed' ? '通过' : '否决'})</h5>
-                                <p><strong>队长:</strong> ${entry.leader}</p>
-                                <p><strong>队伍:</strong> ${entry.team.join(', ')}</p>
-                                <div class="log-votes">
-                                    <p style="color:green; margin:2px 0;"><strong>同意 (${approves.length}):</strong> ${approves.join(', ') || '无'}</p>
-                                    <p style="color:red; margin:2px 0;"><strong>反对 (${rejects.length}):</strong> ${rejects.join(', ') || '无'}</p>
-                                </div>
-                            </div>
-                        `;
+                        return `<div class="log-entry"><h5>第${entry.quest}轮 / 第${entry.proposal}次提议 (${entry.result === 'passed' ? '通过' : '否决'})</h5><p><strong>队长:</strong> ${entry.leader}</p><p><strong>队伍:</strong> ${entry.team.join(', ')}</p><div class="log-votes"><p style="color:green; margin:2px 0;"><strong>同意 (${approves.length}):</strong> ${approves.join(', ') || '无'}</p><p style="color:red; margin:2px 0;"><strong>反对 (${rejects.length}):</strong> ${rejects.join(', ') || '无'}</p></div></div>`;
                     case 'ladyOfTheLake':
-                        return `
-                            <div class="log-entry">
-                                <h5>第${entry.quest}轮 - 湖中女神事件</h5>
-                                <p>🧜‍♀️ <strong>${entry.oldHolder}</strong> (湖中女神) 查验了 <strong>${entry.checkedPlayer}</strong>。</p>
-                                <p>新的湖中女神现在是 <strong>${entry.checkedPlayer}</strong>。</p>
-                            </div>
-                        `;
-                    default:
-                        return '';
+                        return `<div class="log-entry"><h5>第${entry.quest}轮 - 湖中女神事件</h5><p>🧜‍♀️ <strong>${entry.oldHolder}</strong> (湖中女神) 查验了 <strong>${entry.checkedPlayer}</strong>。</p><p>新的湖中女神现在是 <strong>${entry.checkedPlayer}</strong>。</p></div>`;
+                    default: return '';
                 }
             }).join('');
         }
         
+        // ✨ MODIFICATION: 所有提交ID的函数现在都使用playerId
         function renderTeamProposal() {
             actionArea.innerHTML = '<h4>选择你的队员:</h4>';
             const teamSize = gameState.setup.missionTeam[gameState.missionRound];
             gameState.players.forEach(player => {
-                actionArea.innerHTML += `<label><input type="checkbox" class="team-checkbox" value="${player.id}"> ${player.name}</label><br>`;
+                actionArea.innerHTML += `<label><input type="checkbox" class="team-checkbox" value="${player.playerId}"> ${player.name}</label><br>`;
             });
             const proposeBtn = document.createElement('button');
             proposeBtn.textContent = `确认选择 ${teamSize} 人`;
@@ -401,62 +584,63 @@
             };
             actionArea.appendChild(proposeBtn);
         }
-        function renderTeamVoteButtons() {
-            actionArea.innerHTML = `
-                <button onclick="submitTeamVote('approve')">👍 同意</button>
-                <button onclick="submitTeamVote('reject')" style="background-color: #d9534f;">👎 反对</button>
-            `;
-        }
-        function submitTeamVote(vote) {
-            socket.emit('voteOnTeam', { roomId: currentRoomId, vote });
-            actionArea.innerHTML = '<p>已投票，等待其他玩家...</p>';
-        }
-        function renderMissionVoteButtons() {
-            let buttons = `<button onclick="submitMissionVote('success')" style="background-color: #5cb85c;">✅ 任务成功</button>`;
-            if (myAlignment === 'evil') {
-                buttons += `<button onclick="submitMissionVote('fail')" style="background-color: #d9534f;">❌ 任务失败</button>`;
-            }
-            actionArea.innerHTML = buttons;
-        }
-        function submitMissionVote(vote) {
-            socket.emit('voteOnMission', { roomId: currentRoomId, vote });
-            actionArea.innerHTML = '<p>已出票，等待其他队员...</p>';
-        }
+
+        function renderTeamVoteButtons() { actionArea.innerHTML = `<button onclick="submitTeamVote('approve')">👍 同意</button><button onclick="submitTeamVote('reject')" style="background-color: #d9534f;">👎 反对</button>`; }
+        function submitTeamVote(vote) { socket.emit('voteOnTeam', { roomId: currentRoomId, vote }); actionArea.innerHTML = '<p>已投票，等待其他玩家...</p>'; }
+        function renderMissionVoteButtons() { let buttons = `<button onclick="submitMissionVote('success')" style="background-color: #5cb85c;">✅ 任务成功</button>`; if (myAlignment === 'evil') { buttons += `<button onclick="submitMissionVote('fail')" style="background-color: #d9534f;">❌ 任务失败</button>`; } actionArea.innerHTML = buttons; }
+        function submitMissionVote(vote) { socket.emit('voteOnMission', { roomId: currentRoomId, vote }); actionArea.innerHTML = '<p>已出票，等待其他队员...</p>'; }
+        
         function renderAssassinationChoice() {
             actionArea.innerHTML = '<h4>选择你要刺杀的好人阵营玩家:</h4>';
-            if (!gameState.assassinationTargets) {
-                actionArea.innerHTML = '<p>正在获取目标列表...</p>';
-                return;
-            }
+            if (!gameState.assassinationTargets) { actionArea.innerHTML = '<p>正在获取目标列表...</p>'; return; }
             gameState.assassinationTargets.forEach(player => {
                 const btn = document.createElement('button');
                 btn.style.margin = '5px';
                 btn.textContent = `刺杀 ${player.name}`;
-                btn.onclick = () => submitAssassination(player.id);
+                btn.onclick = () => submitAssassination(player.playerId);
                 actionArea.appendChild(btn);
             });
         }
-        function submitAssassination(targetId) {
-            socket.emit('assassinate', { roomId: currentRoomId, targetId });
-            actionArea.innerHTML = '<p>已选择目标，等待最终结果...</p>';
-        }
+        function submitAssassination(targetId) { socket.emit('assassinate', { roomId: currentRoomId, targetId }); actionArea.innerHTML = '<p>已选择目标，等待最终结果...</p>'; }
+        
         function renderLadyOfTheLakeChoice() {
             actionArea.innerHTML = '<h4>🧜‍♀️ 湖中女神: 选择一位玩家查验身份</h4>';
             const previousHolders = gameState.ladyOfTheLake.previousHolders;
             gameState.players.forEach(player => {
-                if (player.id !== myPlayerId && !previousHolders.includes(player.id)) {
+                if (player.playerId !== myPersistentPlayerId && !previousHolders.includes(player.playerId)) {
                     const btn = document.createElement('button');
                     btn.style.margin = '5px';
                     btn.textContent = `查验 ${player.name}`;
-                    btn.onclick = () => submitLadyChoice(player.id);
+                    btn.onclick = () => submitLadyChoice(player.playerId);
                     actionArea.appendChild(btn);
                 }
             });
         }
-        function submitLadyChoice(targetId) {
-            socket.emit('useLadyOfTheLake', { roomId: currentRoomId, targetId });
-            actionArea.innerHTML = '<p>已选择，等待结果...</p>';
+        function submitLadyChoice(targetId) { socket.emit('useLadyOfTheLake', { roomId: currentRoomId, targetId }); actionArea.innerHTML = '<p>已选择，等待结果...</p>'; }
+        
+        // ✨ MODIFICATION START: 新增一个重置到登录页面的函数
+        function resetToLogin() {
+            localStorage.removeItem('avalonRoomId');
+            localStorage.removeItem('avalonPlayerId');
+            
+            myPersistentPlayerId = null;
+            currentRoomId = '';
+            gameState = null;
+            myRole = '';
+            myAlignment = '';
+            amIHost = false;
+
+            loginView.classList.remove('hidden');
+            lobbyView.classList.add('hidden');
+            gameView.classList.add('hidden');
+            
+            // 清理UI
+            ladyInfoDiv.innerHTML = '';
+            playerNameInput.value = '';
+            roomIdInput.value = '';
         }
+        // ✨ MODIFICATION END
+
         function showNotification(message) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
@@ -469,9 +653,7 @@
             modalContent.innerHTML = content;
             modal.classList.remove('hidden');
         }
-        function hideModal() {
-            document.getElementById('modal').classList.add('hidden');
-        }
+        function hideModal() { document.getElementById('modal').classList.add('hidden'); }
     </script>
 </body>
 </html>
