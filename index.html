@@ -5,6 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>阿瓦隆在线</title>
     <style>
+        /* 新增媒体查询，适配手机设备 */
+        @media (max-width: 600px) {
+            .container {
+                width: 95%;
+                padding: 15px;
+            }
+            body {
+                padding: 10px;
+            }
+            h1, h2 {
+                font-size: 1.5em;
+            }
+            .input-group input[type="text"], button {
+                font-size: 14px;
+                padding: 10px;
+            }
+            #game-board {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            #players-info, #game-info {
+                padding: 10px;
+            }
+        }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f0f2f5; }
         .container { width: 90%; max-width: 800px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
