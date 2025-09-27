@@ -5,30 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>阿瓦隆在线</title>
     <style>
-        /* 新增媒体查询，适配手机设备 */
-        @media (max-width: 600px) {
-            .container {
-                width: 95%;
-                padding: 15px;
-            }
-            body {
-                padding: 10px;
-            }
-            h1, h2 {
-                font-size: 1.5em;
-            }
-            .input-group input[type="text"], button {
-                font-size: 14px;
-                padding: 10px;
-            }
-            #game-board {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-            #players-info, #game-info {
-                padding: 10px;
-            }
-        }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f0f2f5; }
         .container { width: 90%; max-width: 800px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
@@ -37,8 +13,8 @@
         input[type="text"], button { width: 100%; padding: 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ddd; box-sizing: border-box; }
         button { background-color: #007bff; color: white; border: none; cursor: pointer; transition: background-color 0.2s; }
         button:hover { background-color: #0056b3; }
-        button.danger-btn { background-color: #dc3545; } /* ✨ MODIFICATION: 危险操作按钮样式 */
-        button.danger-btn:hover { background-color: #c82333; } /* ✨ MODIFICATION: 危险操作按钮样式 */
+        button.danger-btn { background-color: #dc3545; }
+        button.danger-btn:hover { background-color: #c82333; }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
         #game-board { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
         #players-info, #game-info { padding: 15px; border: 1px solid #eee; border-radius: 5px; }
@@ -48,17 +24,15 @@
         .info-block p { margin: 8px 0; }
         #game-info h4 { margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         #players-list label { display: block; padding: 5px; }
-        .player-item { padding: 4px; border-radius: 3px; } /* ✨ MODIFICATION: 基础样式 */
+        .player-item { padding: 4px; border-radius: 3px; }
         .player-item.leader { font-weight: bold; color: orange; }
         .player-item.lady { font-weight: bold; color: #17a2b8; }
         .player-item.on-team { background-color: #dff0d8; }
-        /* ✨ MODIFICATION START: 掉线玩家的样式 */
         .player-item.disconnected {
             color: #999;
             font-style: italic;
             text-decoration: line-through;
         }
-        /* ✨ MODIFICATION END */
         .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 15px 25px; border-radius: 5px; z-index: 1000; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
         .modal-content { background: white; padding: 30px; border-radius: 8px; text-align: center; max-height: 80vh; overflow-y: auto;}
@@ -76,6 +50,92 @@
         .log-entry h5 { margin: 0 0 5px 0; }
         .log-votes { font-size: 0.9em; }
         .two-fails-indicator { position: absolute; top: 2px; right: 4px; font-size: 12px; font-weight: bold; line-height: 1; text-shadow: 0 0 3px rgba(0,0,0,0.5); }
+
+        /* ✨ MODIFICATION START: 优化操作区按钮布局 */
+        #action-area {
+            display: flex;
+            flex-direction: column; /* 将按钮垂直堆叠 */
+            gap: 8px; /* 在按钮之间添加间隙 */
+        }
+        #action-area button {
+            width: 100%; /* 让按钮占据全部宽度，方便点击 */
+        }
+        /* ✨ MODIFICATION END */
+
+        /* ✨ MODIFICATION START: 适配手机设备的媒体查询（替换原有代码） */
+        @media (max-width: 768px) {
+            body {
+                align-items: flex-start; /* 让内容从顶部开始，而不是垂直居中 */
+            }
+
+            .container {
+                width: 100%;
+                max-width: 100%;
+                padding: 15px;
+                border-radius: 0; /* 在手机上取消圆角，实现全屏效果 */
+                box-shadow: none; /* 移除阴影 */
+                min-height: 100vh; /* 确保容器至少和屏幕一样高 */
+                box-sizing: border-box; /* 确保 padding 不会撑大容器 */
+            }
+
+            /* 调整标题大小 */
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.4em; }
+            h3 { font-size: 1.1em; }
+
+            /* 将游戏面板从左右布局改为上下布局 */
+            #game-board {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            /* 减少信息块的内边距 */
+            #players-info, #game-info, .info-block {
+                padding: 10px;
+            }
+
+            /* 缩小任务标记，使其在一行内正常显示 */
+            .mission-marker {
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+            .two-fails-indicator {
+                font-size: 10px;
+                right: 2px;
+            }
+
+            /* 缩小投票轨道标记 */
+            .vote-track-marker {
+                width: 18px;
+                height: 18px;
+            }
+            
+            /* 确保弹窗内容在小屏幕上正常显示 */
+            .modal-content {
+                width: 90%;
+                padding: 20px;
+            }
+
+            /* 优化选择队员时的复选框样式，使其更易于点击 */
+            #action-area label {
+                display: block;
+                padding: 12px;
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                margin-bottom: 5px;
+                cursor: pointer;
+            }
+
+            /* 为被选中的队员添加高亮效果 */
+            #action-area label:has(input:checked) {
+                background-color: #dff0d8;
+                border-color: #5cb85c;
+                font-weight: bold;
+            }
+        }
+        /* ✨ MODIFICATION END */
     </style>
 </head>
 <body>
@@ -145,13 +205,11 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // ✨ MODIFICATION START: socket连接选项，开启重连
         const socket = io({
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
         });
-        // ✨ MODIFICATION END
 
         // Views and Inputs
         const loginView = document.getElementById('login-view');
@@ -165,14 +223,14 @@
         const startGameBtn = document.getElementById('start-game-btn');
         const logButton = document.getElementById('log-button');
         const closeLogBtn = document.getElementById('close-log-btn');
-        const closeRoomBtn = document.getElementById('close-room-btn'); // ✨ MODIFICATION: 新增按钮
-        const forceEndGameBtn = document.getElementById('force-end-game-btn'); // ✨ MODIFICATION: 新增按钮
-        // Buttons
-        const leaveRoomBtn = document.createElement('button'); // 动态创建退出房间按钮
+        const closeRoomBtn = document.getElementById('close-room-btn');
+        const forceEndGameBtn = document.getElementById('force-end-game-btn');
+        const leaveRoomBtn = document.createElement('button'); 
         leaveRoomBtn.textContent = '退出房间';
-        leaveRoomBtn.classList.add('danger-btn', 'hidden'); // 默认隐藏
+        leaveRoomBtn.classList.add('danger-btn', 'hidden');
         leaveRoomBtn.style.marginTop = '10px';
-        lobbyView.appendChild(leaveRoomBtn); //
+        lobbyView.appendChild(leaveRoomBtn);
+
         // Displays
         const roomIdDisplay = document.getElementById('room-id-display');
         const lobbyPlayersList = document.getElementById('lobby-players-list');
@@ -189,14 +247,13 @@
         const logModal = document.getElementById('log-modal');
         const logEntriesDiv = document.getElementById('log-entries');
 
-        // ✨ MODIFICATION START: 重构状态变量
-        let myPersistentPlayerId = null; // 永久ID，用于重连
+        // State variables
+        let myPersistentPlayerId = null;
         let currentRoomId = '';
         let gameState = null;
         let myRole = '';
         let myAlignment = '';
-        let amIHost = false; // 是否是房主
-        // ✨ MODIFICATION END
+        let amIHost = false;
 
         const roleTranslations = { 'Merlin': '梅林', 'Percival': '派西维尔', 'Loyal_Servant': '亚瑟的忠臣', 'Morgana': '莫甘娜', 'Assassin': '刺客', 'Mordred': '莫德雷德', 'Minion': '莫德雷德的爪牙', 'Oberon': '奥伯伦' };
 
@@ -208,11 +265,11 @@
             if (roomId) { socket.emit('joinRoom', { roomId, playerName }); } 
             else { socket.emit('createRoom', { playerName }); }
         });
-        // ✨ 新增退出房间按钮的事件监听
+        
         leaveRoomBtn.addEventListener('click', () => {
             if (confirm('你确定要退出房间吗？')) {
                 socket.emit('leaveRoom', currentRoomId);
-                resetToLogin(); // 重置到登录页面
+                resetToLogin();
             }
         });
         
@@ -221,7 +278,6 @@
         closeLogBtn.addEventListener('click', () => logModal.classList.add('hidden'));
         logModal.addEventListener('click', (e) => { if (e.target === logModal) logModal.classList.add('hidden'); });
 
-        // ✨ MODIFICATION START: 房主按钮的事件监听
         closeRoomBtn.addEventListener('click', () => {
             socket.emit('closeRoom', currentRoomId);
         });
@@ -231,11 +287,8 @@
                 socket.emit('forceEndGameByHost', currentRoomId);
             }
         });
-        // ✨ MODIFICATION END
 
         // --- Socket.IO Listeners ---
-
-        // ✨ MODIFICATION START: 页面加载时检查是否需要重连
         window.addEventListener('load', () => {
             const storedRoomId = localStorage.getItem('avalonRoomId');
             const storedPlayerId = localStorage.getItem('avalonPlayerId');
@@ -247,14 +300,12 @@
                 showNotification('正在尝试重新连接...');
             }
         });
-        // ✨ MODIFICATION END
         
         socket.on('roomCreated', (roomId) => {
             const playerName = playerNameInput.value.trim();
             socket.emit('joinRoom', { roomId: roomId, playerName: playerName });
         });
         
-        // ✨ MODIFICATION: joinSuccess现在是加入房间的唯一凭证，会返回永久ID
         socket.on('joinSuccess', ({ roomId, playerId, isHost }) => {
             console.log(`Successfully joined room ${roomId} with persistent ID ${playerId}`);
             currentRoomId = roomId;
@@ -270,10 +321,9 @@
             } else {
                 closeRoomBtn.classList.add('hidden');
                 leaveRoomBtn.classList.remove('hidden');
-    }
+            }
         });
 
-        // 修改 playerJoined 事件，动态显示退出按钮
         socket.on('playerJoined', ({ players }) => {
             updateLobbyPlayers(players);
             const me = players.find(p => p.playerId === myPersistentPlayerId);
@@ -282,37 +332,32 @@
                 amIHost = me.isHost;
                 console.log(`Player joined. Am I host? ${amIHost}`);
                 if (amIHost) {
-                    closeRoomBtn.classList.remove('hidden'); // 房主显示关闭房间按钮
-                    leaveRoomBtn.classList.add('hidden'); // 房主不显示退出按钮
+                    closeRoomBtn.classList.remove('hidden');
+                    leaveRoomBtn.classList.add('hidden');
                 } else {
-                    closeRoomBtn.classList.add('hidden'); // 非房主隐藏关闭房间按钮
-                    leaveRoomBtn.classList.remove('hidden'); // 非房主显示退出按钮
+                    closeRoomBtn.classList.add('hidden');
+                    leaveRoomBtn.classList.remove('hidden');
                 }
             }
         });
-        // ✨ 新增 leaveRoom 事件监听
+
         socket.on('roomLeft', () => {
             showNotification('你已退出房间');
-            resetToLogin(); // 重置到登录页面
+            resetToLogin();
         });
         
-        // ✨ MODIFICATION START: 全新的重连相关事件
         socket.on('reconnectSuccess', ({ room, gameState: newGameState, playerInfo }) => {
             showNotification('重连成功！');
             console.log('Reconnect successful. Restoring state:', { room, newGameState, playerInfo });
 
-            // 恢复个人信息
             const me = room.players.find(p => p.playerId === myPersistentPlayerId);
             if (me) amIHost = me.isHost;
             
             gameState = newGameState;
 
-            // ✨ FIX START: 根据游戏状态决定显示哪个界面
             if (gameState.status === 'lobby') {
-                // 游戏未开始，显示大厅界面
                 showLobby();
                 updateLobbyPlayers(room.players);
-                // 根据是否房主显示对应按钮
                 if (amIHost) {
                     closeRoomBtn.classList.remove('hidden');
                     leaveRoomBtn.classList.add('hidden');
@@ -322,12 +367,10 @@
                 }
                 showNotification('重连成功，返回游戏大厅');
             } else {
-                // 游戏已开始，显示游戏界面并恢复角色信息
                 loginView.classList.add('hidden');
                 lobbyView.classList.add('hidden');
                 gameView.classList.remove('hidden');
 
-                // 恢复角色信息
                 if (playerInfo) {
                     myRole = playerInfo.role;
                     myAlignment = playerInfo.alignment;
@@ -341,12 +384,9 @@
                         teammatesInfo.textContent = '你没有获得任何特殊情报。'; 
                     }
                 }
-
-                // 渲染整个游戏界面
                 renderGameState();
                 updateGameLog(gameState.gameLog);
             }
-            // ✨ FIX END
         });
 
         socket.on('reconnectFailed', () => {
@@ -354,16 +394,15 @@
             resetToLogin();
         });
 
-        // 监听玩家连接状态变化
         socket.on('playerConnectionUpdate', ({ playerId, connected }) => {
             if (gameState && gameState.players) {
                 const player = gameState.players.find(p => p.playerId === playerId);
                 if (player) {
                     player.connected = connected;
-                    renderGameState(); // 重新渲染以更新UI
+                    renderGameState();
                 }
             }
-            if (!gameView.classList.contains('hidden')) { // 如果在游戏内
+            if (!gameView.classList.contains('hidden')) {
                 const playerInLobby = lobbyPlayersList.querySelector(`[data-player-id="${playerId}"]`);
                 if(playerInLobby) {
                     playerInLobby.style.textDecoration = connected ? 'none' : 'line-through';
@@ -371,7 +410,6 @@
                 }
             }
         });
-        // ✨ MODIFICATION END
 
         socket.on('gameStarted', () => {
             loginView.classList.add('hidden');
@@ -379,7 +417,6 @@
             gameView.classList.remove('hidden');
         });
 
-        // ✨ MODIFICATION START: 监听房间关闭和游戏强制结束事件
         socket.on('roomClosed', (reason) => {
             showNotification(reason);
             resetToLogin();
@@ -392,7 +429,6 @@
                 resetToLogin();
             }, 4000);
         });
-        // ✨ MODIFICATION END
         
         socket.on('roleAssigned', ({ role, alignment, roleInfo }) => {
             myRole = role;
@@ -415,7 +451,6 @@
 
         socket.on('voteResult', ({ votes, passed }) => {
             let resultText = `投票结果: ${passed ? '通过' : '否决'}<br>`;
-            // ✨ MODIFICATION: 使用playerId查找玩家名字
             for(const playerId in votes) {
                 const playerName = gameState.players.find(p => p.playerId === playerId)?.name;
                 resultText += `${playerName}: ${votes[playerId] === 'approve' ? '同意' : '反对'}<br>`;
@@ -444,7 +479,6 @@
             });
             const winnerText = winner ? `${winner === 'good' ? '好人' : '坏人'}方胜利!` : '';
             showModal(`<h2>游戏结束</h2><p>${winnerText}</p><p>${reason}</p>${roleText}`);
-            // ✨ MODIFICATION: 游戏结束后清除本地存储
             setTimeout(resetToLogin, 10000);
         });
 
@@ -457,12 +491,11 @@
             roomIdDisplay.textContent = currentRoomId;
         }
 
-        // ✨ MODIFICATION: 更新大厅玩家列表，显示房主和连接状态
         function updateLobbyPlayers(players) {
             lobbyPlayersList.innerHTML = '';
             players.forEach(p => {
                 const li = document.createElement('li');
-                li.dataset.playerId = p.playerId; // 添加ID方便查找
+                li.dataset.playerId = p.playerId;
                 let text = p.name;
                 if (p.isHost) text += " (房主)";
                 li.textContent = text;
@@ -476,11 +509,9 @@
             startGameBtn.disabled = players.length < 5 || players.length > 10;
         }
 
-        // ✨ MODIFICATION: 核心渲染函数，增加房主按钮显示和掉线状态显示
         function renderGameState() {
             if (!gameState) return;
             
-            // 更新房主按钮可见性
             if (amIHost) {
                 forceEndGameBtn.classList.remove('hidden');
             }
@@ -575,7 +606,6 @@
                     case 'proposal':
                         const approves = [];
                         const rejects = [];
-                        // ✨ MODIFICATION: 使用playerId查找玩家名字
                         for (const playerId in entry.votes) {
                             const playerName = gameState.players.find(p => p.playerId === playerId)?.name || '未知玩家';
                             if (entry.votes[playerId] === 'approve') approves.push(playerName);
@@ -589,12 +619,11 @@
             }).join('');
         }
         
-        // ✨ MODIFICATION: 所有提交ID的函数现在都使用playerId
         function renderTeamProposal() {
             actionArea.innerHTML = '<h4>选择你的队员:</h4>';
             const teamSize = gameState.setup.missionTeam[gameState.missionRound];
             gameState.players.forEach(player => {
-                actionArea.innerHTML += `<label><input type="checkbox" class="team-checkbox" value="${player.playerId}"> ${player.name}</label><br>`;
+                actionArea.innerHTML += `<label><input type="checkbox" class="team-checkbox" value="${player.playerId}"> ${player.name}</label>`;
             });
             const proposeBtn = document.createElement('button');
             proposeBtn.textContent = `确认选择 ${teamSize} 人`;
@@ -642,7 +671,6 @@
         }
         function submitLadyChoice(targetId) { socket.emit('useLadyOfTheLake', { roomId: currentRoomId, targetId }); actionArea.innerHTML = '<p>已选择，等待结果...</p>'; }
         
-        // ✨ MODIFICATION START: 新增一个重置到登录页面的函数
         function resetToLogin() {
             localStorage.removeItem('avalonRoomId');
             localStorage.removeItem('avalonPlayerId');
@@ -658,12 +686,10 @@
             lobbyView.classList.add('hidden');
             gameView.classList.add('hidden');
             
-            // 清理UI
             ladyInfoDiv.innerHTML = '';
             playerNameInput.value = '';
             roomIdInput.value = '';
         }
-        // ✨ MODIFICATION END
 
         function showNotification(message) {
             const notification = document.getElementById('notification');
